@@ -1,5 +1,5 @@
 [package]
-name = "snap-coin-node"
+name = "snap-coin-utils"
 version = "1.0.3"
 edition = "2024"
 authors = ["Ice"]
