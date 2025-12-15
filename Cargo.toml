@@ -1,0 +1,15 @@
+[package]
+name = "snap-coin-node"
+version = "1.0.3"
+edition = "2024"
+authors = ["Ice"]
+description = "A simple CLI for accessing blockchain and node data on the Snap Coin network"
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+anyhow = "1.0.100"
+clap = { version = "4.5.53", features = ["derive"] }
+num-bigint = "0.4.6"
+snap-coin = "3.0.0"
+tokio = "1.48.0"
