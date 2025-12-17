@@ -63,6 +63,9 @@ enum Commands {
 
     /// Get current difficulty
     Difficulty,
+
+    /// Get Current Mempool
+    Mempool
 }
 
 #[tokio::main]
@@ -112,7 +115,7 @@ async fn main() -> Result<(), anyhow::Error> {
                 // println!("{}", to_snap(utxos.iter().fold(0, |acc, utxo| acc + utxo.1.amount)));
                 println!(
                     "Transaction history (blocks):\n{:?}",
-                    client.get_transactions_of_address(&public).await?
+                    client.get_transactions_of_address(public).await?
                 );
             } else {
                 return Err(anyhow!(
@@ -130,6 +133,9 @@ async fn main() -> Result<(), anyhow::Error> {
 
             println!("Block Difficulty: {}", format_biguint(h_block_diff));
             println!("Transaction Difficulty: {}", format_biguint(h_transaction_diff));
+        }
+        Commands::Mempool => {
+            println!("Mempool:\n{:#?}", client.get_mempool().await?);
         }
     }
 
