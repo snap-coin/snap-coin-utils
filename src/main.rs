@@ -86,7 +86,7 @@ async fn main() -> Result<(), anyhow::Error> {
             if let Some(height) = height {
                 println!("{:#?}", client.get_block_by_height(height).await?);
             } else if let Some(hash) = hash {
-                println!("{:#?}", client.get_block_by_hash(&hash).await?);
+                println!("{:#?}", client.get_block_by_hash(hash).await?);
             } else {
                 return Err(anyhow!(
                     "Block identifier {id} is not valid. Expected base36 hash or height."
