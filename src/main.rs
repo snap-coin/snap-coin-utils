@@ -1,26 +1,48 @@
 use anyhow::anyhow;
 use clap::{Parser, Subcommand};
 use num_bigint::BigUint;
+use num_traits::cast::ToPrimitive;
 use snap_coin::{
     api::client::Client,
     blockchain_data_provider::BlockchainDataProvider,
-    core::{transaction::TransactionId, utils::max_256_bui},
+    core::transaction::TransactionId,
     crypto::{Hash, keys::Public},
     to_snap,
 };
 use tokio::net::lookup_host;
 
-fn format_biguint(mut value: BigUint) -> String {
-    let units = ["", "K", "M", "G", "T", "P"];
-    let thousand = BigUint::from(1000u32);
+mod averages;
 
+pub fn normalize_difficulty(target: &[u8; 32]) -> f64 {
+    let target = BigUint::from_bytes_be(target);
+    let max_target = BigUint::from_bytes_be(&[255u8; 32]);
+
+    let max_f = max_target.to_f64().unwrap(); // ~1e77
+    let target_f = target.to_f64().unwrap();
+
+    max_f / target_f
+}
+
+pub fn format_biguint_hr(value: &[u8; 32]) -> String {
+    let units = ["", "K", "M", "G", "T", "P"];
+    let thousand = 1000.0;
+
+    // Use normalize_difficulty to get f64
+    let mut value_f = normalize_difficulty(value);
+
+    // Format with units
     let mut unit_index = 0;
-    while value >= thousand && unit_index < units.len() - 1 {
-        value /= &thousand;
+    while value_f >= thousand && unit_index < units.len() - 1 {
+        value_f /= thousand;
         unit_index += 1;
     }
 
-    format!("{}{}", value, units[unit_index])
+    // Keep 2 decimal places if not an integer
+    if value_f.fract() == 0.0 {
+        format!("{}{}", value_f as u64, units[unit_index])
+    } else {
+        format!("{:.2}{}", value_f, units[unit_index])
+    }
 }
 
 #[derive(Parser)]
@@ -65,7 +87,10 @@ enum Commands {
     Difficulty,
 
     /// Get Current Mempool
-    Mempool
+    Mempool,
+
+    /// Calculate basic average info for the past X blocks
+    Averages { blocks: usize },
 }
 
 #[tokio::main]
@@ -125,17 +150,71 @@ async fn main() -> Result<(), anyhow::Error> {
         }
         Commands::Height => println!("Height: {}", client.get_height().await?),
         Commands::Difficulty => {
-            let block_diff = BigUint::from_bytes_be(&client.get_block_difficulty().await?);
-            let h_block_diff = max_256_bui() / &block_diff;
-
-            let transaction_diff = BigUint::from_bytes_be(&client.get_transaction_difficulty().await?);
-            let h_transaction_diff = max_256_bui() / &transaction_diff;
-
-            println!("Block Difficulty: {}", format_biguint(h_block_diff));
-            println!("Transaction Difficulty: {}", format_biguint(h_transaction_diff));
+            println!(
+                "Block Difficulty: {}",
+                format_biguint_hr(&client.get_block_difficulty().await?)
+            );
+            println!(
+                "Transaction Difficulty: {}",
+                format_biguint_hr(&client.get_transaction_difficulty().await?)
+            );
         }
         Commands::Mempool => {
             println!("Mempool:\n{:#?}", client.get_mempool().await?);
+        }
+        Commands::Averages { blocks } => {
+            let stats = averages::calculate_chain_stats(&client, blocks).await?;
+            let height = client.get_height().await?;
+
+            // Plot block times
+            let block_numbers: Vec<usize> =
+                (height - stats.tx_difficulty_series.len()..height).collect();
+            averages::plot_difficulties(
+                &block_numbers,
+                &stats.block_difficulty_series,
+                &stats.tx_difficulty_series,
+            );
+
+            // Optional: print top miners & addresses
+            println!("\nTop 10 Miners:");
+            for (addr, count) in &stats.top_miners {
+                println!(
+                    "{} -> {} blocks",
+                    Public::new_from_buf(addr).dump_base36(),
+                    count
+                );
+            }
+
+            println!("\nTop 10 Addresses:");
+            for (addr, count) in &stats.top_addresses {
+                println!(
+                    "{} -> {} appearances",
+                    Public::new_from_buf(addr).dump_base36(),
+                    count
+                );
+            }
+
+            println!(
+                "\nAvg TXs/block: {:.2}, Avg IO/block: {:.2}, Avg block size: {:.2} bytes, TPS: {:.2}",
+                stats.avg_txs_per_block,
+                stats.avg_io_per_block,
+                stats.avg_block_size_bytes,
+                stats.tps
+            );
+
+            println!(
+                "Avg Block Difficulty: {:.2}, Avg TX Difficulty: {:.2}",
+                stats.avg_block_difficulty, stats.avg_tx_difficulty
+            );
+
+            println!(
+                "Block Time Avg: {:.2}s, Median: {:.2}s, Std Dev: {:.2}s, Min: {:.2}s, Max: {:.2}s",
+                stats.block_time.average,
+                stats.block_time.median,
+                stats.block_time.std_dev,
+                stats.block_time.min,
+                stats.block_time.max
+            );
         }
     }
 
