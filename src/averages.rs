@@ -120,9 +120,6 @@ pub async fn calculate_block_averages(
     }
 
     let mut deltas: Vec<f64> = timestamps.windows(2).map(|w| w[1] - w[0]).collect();
-    if deltas.iter().any(|v| !v.is_finite() || *v < 0.0) {
-        return Err(anyhow!("Invalid block time delta"));
-    }
 
     let count = deltas.len() as f64;
     let average = deltas.iter().sum::<f64>() / count;
@@ -194,7 +191,6 @@ pub async fn calculate_chain_stats(client: &Client, block_count: usize) -> Resul
 
         total_size += encode_to_vec(&block, bincode::config::standard())?.len();
         block_diffs.push(normalize_difficulty(&block.meta.block_pow_difficulty));
-        println!("TX DIFF: {:?}", block.meta.tx_pow_difficulty);
         tx_diffs.push(normalize_difficulty(&block.meta.tx_pow_difficulty));
     }
 
