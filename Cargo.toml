@@ -1,6 +1,6 @@
 [package]
 name = "snap-coin-utils"
-version = "3.1.1"
+version = "3.1.2"
 edition = "2024"
 authors = ["Ice"]
 description = "A simple CLI for accessing blockchain and node data on the Snap Coin network"
@@ -14,6 +14,6 @@ clap = { version = "4.5.53", features = ["derive"] }
 num-bigint = "0.4.6"
 num-rational = "0.4.2"
 num-traits = "0.2.19"
-snap-coin = "8.4.0"
+snap-coin = "9.0.0"
 term_size = "0.3.2"
 tokio = { version = "1.48.0", features = ["rt-multi-thread"] }
